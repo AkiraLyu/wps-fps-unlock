@@ -1,0 +1,13 @@
+Qt_5 {
+    global:
+        _ZNK6kso_qt13QElapsedTimer7elapsedEv;
+        _ZN6kso_qt13QElapsedTimer7restartEv;
+        _ZNK6kso_qt13QElapsedTimer12nsecsElapsedEv;
+        _ZNK6kso_qt13QElapsedTimer10hasExpiredEx;
+        _ZNK13QElapsedTimer7elapsedEv;
+        _ZN13QElapsedTimer7restartEv;
+        _ZNK13QElapsedTimer12nsecsElapsedEv;
+        _ZNK13QElapsedTimer10hasExpiredEx;
+    local:
+        *;
+};

@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+hook_lib="${WPS_QELAPSED_LIB:-${repo_root}/build/libwps_qelapsed_scale.so}"
+faketime_lib="${WPS_FAKETIME_LIB:-/usr/lib/faketime/libfaketimeMT.so.1}"
+wpp_bin="${WPS_WPP_BIN:-/usr/lib/office6/wpp}"
+fake_speed="${WPS_FAKE_SPEED:-2.0}"
+
+if [[ ! -r "${hook_lib}" ]]; then
+    echo "missing ${hook_lib}; run: make" >&2
+    exit 1
+fi
+
+if [[ ! -r "${faketime_lib}" ]]; then
+    faketime_lib="/usr/lib/faketime/libfaketime.so.1"
+fi
+
+if [[ ! -r "${faketime_lib}" ]]; then
+    echo "missing libfaketime; install libfaketime or set WPS_FAKETIME_LIB" >&2
+    exit 1
+fi
+
+if [[ ! -x "${wpp_bin}" ]]; then
+    echo "missing executable ${wpp_bin}; set WPS_WPP_BIN if WPS is installed elsewhere" >&2
+    exit 1
+fi
+
+if [[ -z "${WPS_QELAPSED_SCALE:-}" ]]; then
+    WPS_QELAPSED_SCALE="$(awk -v speed="${fake_speed}" 'BEGIN { if (speed <= 0) exit 1; printf "%.9g", 1 / speed }')"
+fi
+
+export WPS_QELAPSED_SCALE
+export FAKETIME="${FAKETIME:-+0 x${fake_speed}}"
+export LD_PRELOAD="${hook_lib}:${faketime_lib}${LD_PRELOAD:+:${LD_PRELOAD}}"
+
+exec "${wpp_bin}" "$@"
