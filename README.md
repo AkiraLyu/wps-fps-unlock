@@ -52,6 +52,26 @@ WPS_FAKE_SPEED=2.5 WPS_QELAPSED_SCALE=0.4 bin/wpp-fps-unlock demo.pptx
 WPS_QELAPSED_DEBUG=1 bin/wpp-fps-unlock demo.pptx
 ```
 
+启动脚本会默认用 `nm` 从 WPS 自带 QtCore 里自动寻找 `QElapsedTimer` 的 mangled names，并通过环境变量传给 preload 库。WPS 更新后如果只是 Qt 命名空间或符号名变化，通常不需要重新编译。
+
+可以手动指定 QtCore 路径：
+
+```bash
+WPS_QTCORE_LIB=/usr/lib/office6/libQt5CoreKso.so.5.12.12 bin/wpp-fps-unlock demo.pptx
+```
+
+也可以关闭自动查找，回退到内置符号名：
+
+```bash
+WPS_QELAPSED_AUTOSYMBOLS=0 bin/wpp-fps-unlock demo.pptx
+```
+
+只查看自动找到的符号，不启动 WPS：
+
+```bash
+WPS_QELAPSED_PRINT_SYMBOLS=1 bin/wpp-fps-unlock
+```
+
 如果某次 WPS 更新后 inline patch 的函数前缀变了，可以先禁用 inline patch 做排查：
 
 ```bash

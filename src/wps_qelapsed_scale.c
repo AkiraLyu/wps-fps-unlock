@@ -31,6 +31,9 @@ static int g_inline = 1;
 static elapsed_fn g_kso_elapsed = NULL;
 static restart_fn g_kso_restart = NULL;
 static nsecs_elapsed_fn g_kso_nsecs_elapsed = NULL;
+static const char *g_kso_elapsed_symbol = "_ZNK6kso_qt13QElapsedTimer7elapsedEv";
+static const char *g_kso_restart_symbol = "_ZN6kso_qt13QElapsedTimer7restartEv";
+static const char *g_kso_nsecs_elapsed_symbol = "_ZNK6kso_qt13QElapsedTimer12nsecsElapsedEv";
 static int g_kso_elapsed_patched = 0;
 static int g_kso_restart_patched = 0;
 static int g_kso_nsecs_elapsed_patched = 0;
@@ -108,8 +111,21 @@ static void init_hook(void)
     g_debug_limit = parse_positive_int(getenv("WPS_QELAPSED_DEBUG_LIMIT"), 24);
     g_inline = parse_bool_int(getenv("WPS_QELAPSED_INLINE"), 1);
 
+    const char *elapsed_symbol = getenv("WPS_QELAPSED_SYMBOL_ELAPSED");
+    const char *restart_symbol = getenv("WPS_QELAPSED_SYMBOL_RESTART");
+    const char *nsecs_elapsed_symbol = getenv("WPS_QELAPSED_SYMBOL_NSECS_ELAPSED");
+    if (elapsed_symbol && *elapsed_symbol)
+        g_kso_elapsed_symbol = elapsed_symbol;
+    if (restart_symbol && *restart_symbol)
+        g_kso_restart_symbol = restart_symbol;
+    if (nsecs_elapsed_symbol && *nsecs_elapsed_symbol)
+        g_kso_nsecs_elapsed_symbol = nsecs_elapsed_symbol;
+
     if (g_debug) {
         fprintf(stderr, "wps-qelapsed-scale: scale=%g inline=%d\n", g_scale, g_inline);
+        fprintf(stderr, "wps-qelapsed-scale: elapsed symbol=%s\n", g_kso_elapsed_symbol);
+        fprintf(stderr, "wps-qelapsed-scale: restart symbol=%s\n", g_kso_restart_symbol);
+        fprintf(stderr, "wps-qelapsed-scale: nsecsElapsed symbol=%s\n", g_kso_nsecs_elapsed_symbol);
     }
 }
 
@@ -203,11 +219,11 @@ static void ensure_hooks_ready(void)
     pthread_mutex_lock(&g_hook_lock);
 
     if (!g_kso_elapsed)
-        g_kso_elapsed = (elapsed_fn)resolve_qt5_symbol("_ZNK6kso_qt13QElapsedTimer7elapsedEv");
+        g_kso_elapsed = (elapsed_fn)resolve_qt5_symbol(g_kso_elapsed_symbol);
     if (!g_kso_restart)
-        g_kso_restart = (restart_fn)resolve_qt5_symbol("_ZN6kso_qt13QElapsedTimer7restartEv");
+        g_kso_restart = (restart_fn)resolve_qt5_symbol(g_kso_restart_symbol);
     if (!g_kso_nsecs_elapsed)
-        g_kso_nsecs_elapsed = (nsecs_elapsed_fn)resolve_qt5_symbol("_ZNK6kso_qt13QElapsedTimer12nsecsElapsedEv");
+        g_kso_nsecs_elapsed = (nsecs_elapsed_fn)resolve_qt5_symbol(g_kso_nsecs_elapsed_symbol);
 
     if (!g_qt_elapsed)
         g_qt_elapsed = (elapsed_fn)resolve_qt5_symbol("_ZNK13QElapsedTimer7elapsedEv");

@@ -6,6 +6,88 @@ hook_lib="${WPS_QELAPSED_LIB:-${repo_root}/build/libwps_qelapsed_scale.so}"
 faketime_lib="${WPS_FAKETIME_LIB:-/usr/lib/faketime/libfaketimeMT.so.1}"
 wpp_bin="${WPS_WPP_BIN:-/usr/lib/office6/wpp}"
 fake_speed="${WPS_FAKE_SPEED:-2.0}"
+qtcore_lib="${WPS_QTCORE_LIB:-}"
+
+find_qtcore_lib() {
+    if [[ -n "${qtcore_lib}" && -r "${qtcore_lib}" ]]; then
+        printf '%s\n' "${qtcore_lib}"
+        return 0
+    fi
+
+    local wpp_dir
+    wpp_dir="$(cd -- "$(dirname -- "${wpp_bin}")" && pwd)"
+
+    local candidate
+    for candidate in \
+        "${wpp_dir}"/libQt5CoreKso.so.* \
+        "${wpp_dir}"/libQt5Core.so.* \
+        /usr/lib/office6/libQt5CoreKso.so.* \
+        /usr/lib/office6/libQt5Core.so.*
+    do
+        if [[ -r "${candidate}" && ! -d "${candidate}" ]]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+find_mangled_symbol() {
+    local lib_path="$1"
+    local suffix="$2"
+
+    if ! command -v nm >/dev/null 2>&1; then
+        return 1
+    fi
+
+    nm -D --defined-only "${lib_path}" 2>/dev/null |
+        awk -v suffix="${suffix}" '
+            NF >= 3 {
+                name = $3
+                sub(/@@.*/, "", name)
+                sub(/@.*/, "", name)
+                if (name ~ suffix "$") {
+                    print name
+                    exit
+                }
+            }
+        '
+}
+
+configure_qelapsed_symbols() {
+    if [[ "${WPS_QELAPSED_AUTOSYMBOLS:-1}" == "0" ]]; then
+        return 0
+    fi
+
+    local lib_path
+    lib_path="$(find_qtcore_lib || true)"
+    if [[ -z "${lib_path}" ]]; then
+        return 0
+    fi
+
+    local symbol
+    if [[ -z "${WPS_QELAPSED_SYMBOL_ELAPSED:-}" ]]; then
+        symbol="$(find_mangled_symbol "${lib_path}" "13QElapsedTimer7elapsedEv" || true)"
+        if [[ -n "${symbol}" ]]; then
+            export WPS_QELAPSED_SYMBOL_ELAPSED="${symbol}"
+        fi
+    fi
+
+    if [[ -z "${WPS_QELAPSED_SYMBOL_RESTART:-}" ]]; then
+        symbol="$(find_mangled_symbol "${lib_path}" "13QElapsedTimer7restartEv" || true)"
+        if [[ -n "${symbol}" ]]; then
+            export WPS_QELAPSED_SYMBOL_RESTART="${symbol}"
+        fi
+    fi
+
+    if [[ -z "${WPS_QELAPSED_SYMBOL_NSECS_ELAPSED:-}" ]]; then
+        symbol="$(find_mangled_symbol "${lib_path}" "13QElapsedTimer12nsecsElapsedEv" || true)"
+        if [[ -n "${symbol}" ]]; then
+            export WPS_QELAPSED_SYMBOL_NSECS_ELAPSED="${symbol}"
+        fi
+    fi
+}
 
 if [[ ! -r "${hook_lib}" ]]; then
     echo "missing ${hook_lib}; run: make" >&2
@@ -28,6 +110,15 @@ fi
 
 if [[ -z "${WPS_QELAPSED_SCALE:-}" ]]; then
     WPS_QELAPSED_SCALE="$(awk -v speed="${fake_speed}" 'BEGIN { if (speed <= 0) exit 1; printf "%.9g", 1 / speed }')"
+fi
+
+configure_qelapsed_symbols
+
+if [[ "${WPS_QELAPSED_PRINT_SYMBOLS:-0}" != "0" ]]; then
+    printf 'WPS_QELAPSED_SYMBOL_ELAPSED=%s\n' "${WPS_QELAPSED_SYMBOL_ELAPSED:-}"
+    printf 'WPS_QELAPSED_SYMBOL_RESTART=%s\n' "${WPS_QELAPSED_SYMBOL_RESTART:-}"
+    printf 'WPS_QELAPSED_SYMBOL_NSECS_ELAPSED=%s\n' "${WPS_QELAPSED_SYMBOL_NSECS_ELAPSED:-}"
+    exit 0
 fi
 
 export WPS_QELAPSED_SCALE
